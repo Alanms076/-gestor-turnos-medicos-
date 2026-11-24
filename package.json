@@ -1,0 +1,13 @@
+{
+  "name": "gestor-turnos-medicos",
+  "version": "1.0.0",
+  "description": "Aplicación web full-stack para gestión de turnos médicos online",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/turnos.test.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
