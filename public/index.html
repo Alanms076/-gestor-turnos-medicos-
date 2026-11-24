@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestor de Turnos Médicos Online</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f7fb; color: #1e293b; max-width: 850px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { color: #0f172a; }
+    .card { background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 1.5rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    input, select, button { width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; }
+    button { background: #2563eb; color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+    button:hover { background: #1d4ed8; }
+    .btn-cancelar { background: #ef4444; width: auto; padding: 0.4rem 0.8rem; margin: 0; font-size: 0.85rem; }
+    .msg { padding: 0.75rem; border-radius: 6px; margin-top: 1rem; display: none; }
+    .ok { background: #dcfce7; color: #166534; }
+    .err { background: #fee2e2; color: #991b1b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+    .badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+    .Pendiente { background: #fef3c7; color: #92400e; }
+    .Confirmado { background: #dcfce7; color: #166534; }
+    .Cancelado { background: #f1f5f9; color: #64748b; }
+  </style>
+</head>
+<body>
+  <h1>🏥 Gestor de Turnos Médicos Online</h1>
+
+  <div class="card">
+    <h2>Reservar Nuevo Turno</h2>
+    <form id="formTurno">
+      <div class="grid">
+        <div>
+          <label>Nombre del Paciente</label>
+          <input type="text" id="paciente" placeholder="Ej: Ana López" required />
+        </div>
+        <div>
+          <label>Médico y Especialidad</label>
+          <select id="medicoSelect" required></select>
+        </div>
+        <div>
+          <label>Fecha</label>
+          <input type="date" id="fecha" required />
+        </div>
+        <div>
+          <label>Horario</label>
+          <input type="time" id="hora" required />
+        </div>
+      </div>
+      <button type="submit">Reservar Turno</button>
+    </form>
+    <div id="mensaje" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Turnos Registrados</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>Médico</th>
+          <th>Especialidad</th>
+          <th>Fecha y Hora</th>
+          <th>Estado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="tablaTurnos"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let listaMedicos = [];
+
+    async function cargarMedicos() {
+      const res = await fetch("/api/medicos");
+      const data = await res.json();
+      listaMedicos = data.medicos;
+      const select = document.getElementById("medicoSelect");
+      select.innerHTML = listaMedicos
+        .map((m) => `<option value="${m.nombre}" data-esp="${m.especialidad}">${m.nombre} (${m.especialidad})</option>`)
+        .join("");
+    }
+
+    async function cargarTurnos() {
+      const res = await fetch("/api/turnos");
+      const data = await res.json();
+      const tbody = document.getElementById("tablaTurnos");
+      tbody.innerHTML = data.turnos
+        .map((t) => `
+          <tr>
+            <td>${t.paciente}</td>
+            <td>${t.medico}</td>
+            <td>${t.especialidad}</td>
+            <td>${t.fecha} ${t.hora}</td>
+            <td><span class="badge ${t.estado}">${t.estado}</span></td>
+            <td>
+              ${t.estado !== "Cancelado" ? `<button class="btn-cancelar" onclick="cancelar(${t.id})">Cancelar</button>` : "-"}
+            </td>
+          </tr>
+        `)
+        .join("");
+    }
+
+    document.getElementById("formTurno").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const select = document.getElementById("medicoSelect");
+      const option = select.options[select.selectedIndex];
+      const payload = {
+        paciente: document.getElementById("paciente").value,
+        medico: select.value,
+        especialidad: option.getAttribute("data-esp"),
+        fecha: document.getElementById("fecha").value,
+        hora: document.getElementById("hora").value
+      };
+
+      const res = await fetch("/api/turnos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      const msg = document.getElementById("mensaje");
+      msg.style.display = "block";
+      if (data.ok) {
+        msg.className = "msg ok";
+        msg.textContent = "✅ Turno reservado correctamente.";
+        e.target.reset();
+        cargarTurnos();
+      } else {
+        msg.className = "msg err";
+        msg.textContent = "❌ " + data.error;
+      }
+    });
+
+    async function cancelar(id) {
+      await fetch(`/api/turnos/${id}/cancelar`, { method: "PATCH" });
+      cargarTurnos();
+    }
+
+    cargarMedicos();
+    cargarTurnos();
+  </script>
+</body>
+</html>
